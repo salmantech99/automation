@@ -1,0 +1,52 @@
+# This workflow will build, test, and deploy changes to an SFCC sandbox environment for the Main, Develop, and Release branches.
+
+name: SFCC CI/CD
+
+on:
+  push:
+    branches:
+      - Main
+      - Develop
+      - Release/*
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install SFCC CLI
+        run: |
+          choco install nodejs-lts -y
+          npm install -g @sfcc/cli@21.4.1
+          sfcc --version
+
+      - name: Authenticate with SFCC Sandbox
+        uses: wunderio/sfcc-ci-actions@v1
+        with:
+          client-id: ${{ secrets.SFCC_CLIENT_ID }}
+          client-secret: ${{ secrets.SFCC_CLIENT_SECRET }}
+          user-name: ${{ secrets.SFCC_USERNAME }}
+          password: ${{ secrets.SFCC_PASSWORD }}
+          hostname: ${{ secrets.SFCC_HOSTNAME }}
+          realm: ${{ secrets.SFCC_REALM }}
+
+      - name: Build and Deploy Code to SFCC Sandbox
+        run: |
+          sfcc-ci build
+          sfcc-ci deploy
+
+      - name: Run Snyk for Code Scanning
+        uses: snyk/actions/scan@v3
+        with:
+          organization: ${{ secrets.SNYK_ORG }}
+          project-name: My SFCC Project
+          file: 'package.json'
+          include-dev-deps: true
+          severity-threshold: high
+          fail-on: high
+          print-deps: false
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}x
